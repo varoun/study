@@ -31,29 +31,30 @@
 
 ;;; The evaluator 
 
-(define (eval* exp)
+(define (eval* exp env)
   (cond ((number? exp) exp)
-	((symbol? exp) (lookup exp))
-	((define? exp) (eval-define exp))
-	((if? exp) (eval-if exp))
+	((symbol? exp) (lookup exp env))
+	((define? exp) (eval-define exp env))
+	((if? exp) (eval-if exp env))
 	((application? exp) 
-	 (apply* (eval* (car exp)) (map eval* (cdr exp))))
+	 (apply* (eval* (car exp) env) 
+		 (map (lambda (e) (eval* e env)) (cdr exp))))
 	(else 
 	 (error "Unknown operation in eval*"))))
 
 ;;; looking up the value of a symbol in the enviroment
 ;;; I should really use cond here, 'if' is not primitive!
-(define (lookup name)
-  (let ((val (table-ref *environment* name)))
+(define (lookup name env)
+  (let ((val (table-ref env name)))
     (if val
 	val
 	(error "Unbound variable" name))))
 
 ;;; definitions -- adds a binding to the environment
-(define (eval-define exp)
+(define (eval-define exp env)
   (let ((name (cadr exp))
 	(defined-to-be (caddr exp)))
-    (table-set! *environment* name (eval* defined-to-be))
+    (table-set! env name (eval* defined-to-be env))
     'unspecific))
 
 #|
@@ -66,24 +67,16 @@
 
 ;;; Conditionals - evaluating if* expressions
 ;;; Our primitive conditional is the 'cond' (used in eval* for ex)
-(define (eval-if exp)
+(define (eval-if exp env)
   (let* ((predicate (cadr exp))
 	 (consequent (caddr exp))
 	 (alternative (cadddr exp))
-	 (test (eval* predicate)))
+	 (test (eval* predicate env)))
     (cond 
-     ((eq? test #t) (eval* consequent))
-     ((eq? test #f) (eval* alternative))
+     ((eq? test #t) (eval* consequent env))
+     ((eq? test #f) (eval* alternative env))
      (else 
       (error "Predicate not a conditional: " predicate)))))
-
-#|
-> (eval* '(define* y* 9))
-'unspecific
-> (eval* '(if* (greater* y* 6) (plus* y* 2) 15))
-11
-> 
-|#
 
 ;;; Application
 (define (apply* operator operands)
@@ -91,11 +84,12 @@
       (apply (get-scheme-procedure operator) operands)
       (error "Operator not a procedure: " operator)))
 
-#|
-> (eval* '(define* z* 9))
-'unspecific
-> (eval* '(plus* z* 6))
-15
-> (eval* '(if* true* 10 15))
-10
-|#
+;> (eval* '(define* z* 9) *environment*)
+;'unspecific
+;> (eval* '(if* (greater* z* 6)
+;	       (plus* z* 2)
+;	       15)
+;	 *environment*)
+;11
+;> 
+
