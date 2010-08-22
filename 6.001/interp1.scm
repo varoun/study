@@ -57,13 +57,6 @@
     (table-set! env name (eval* defined-to-be env))
     'unspecific))
 
-#|
-> (eval* '(define* x* (plus* 4 5)))
-'unspecific
-> (eval* '(plus* x* 2))
-11
-> 
-|#
 
 ;;; Conditionals - evaluating if* expressions
 ;;; Our primitive conditional is the 'cond' (used in eval* for ex)
