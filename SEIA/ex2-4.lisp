@@ -118,7 +118,9 @@ CL-USER>
 (defun query-bookstores (isbn)
   (let ((store-name (mapcar #'car *book-data-sources*)))
     (dolist (name store-name)
-      (let* ((results-page (get-book-results name isbn))
+      (let* ((results-page 
+	      (handler-case (get-book-results name isbn)
+		(usocket:unknown-error () (format nil "HTTP request failed"))))
 	     (title 
 	      (handler-case (extract-data name *title-regex-scanners* results-page)
 		(no-regex-match (data) (text data))))
