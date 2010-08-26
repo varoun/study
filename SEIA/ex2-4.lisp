@@ -94,7 +94,9 @@ CL-USER>
       (cl-ppcre:scan-to-strings 
        (get-scanner-from-db bookstore dbname)
        html-page)
-    (elt matching-value 0)))
+    (if (null matching-string)
+	(error 'no-regex-match :text "Search failed")
+	(elt matching-value 0))))
 #|
 CL-USER> (extract-data 'powells 
 		       *title-regex-scanners*
@@ -104,5 +106,47 @@ CL-USER> (extract-data 'powells
 		       *price-regex-scanners*
 		       (get-book-results 'powells "0590353403"))
 "$10.50"
+CL-USER> 
+|#
+
+;;; Some basic error handling
+(define-condition no-regex-match (error)
+  ((text :initarg :text :reader text)))
+
+;;; Given a isbn, query bookstores in the database for title and price information 
+
+(defun query-bookstores (isbn)
+  (let ((store-name (mapcar #'car *book-data-sources*)))
+    (dolist (name store-name)
+      (let* ((results-page (get-book-results name isbn))
+	     (title 
+	      (handler-case (extract-data name *title-regex-scanners* results-page)
+		(no-regex-match (data) (text data))))
+	     (price 
+	      (handler-case (extract-data name *price-regex-scanners* results-page)
+		(no-regex-match (data) (text data)))))
+	(format t "~%Store:~a~%Title:~a~%Price:~a~%" 
+		name title price)))))
+#|
+CL-USER> (query-bookstores "0590353403")
+
+Store:BN
+Title:Harry Potter and the Sorcerer\'s Stone (Harry Potter #1)
+Price:$17.9
+
+Store:POWELLS
+Title:Harry Potter #01: Harry Potter and the Sorcerer's Stone
+Price:$10.50
+NIL
+CL-USER> (query-bookstores "1588750019")
+
+Store:BN
+Title:Travels with Samantha
+Price:Search failed <-- note this!!
+
+Store:POWELLS
+Title:Travels with Samantha
+Price:$7.95
+NIL
 CL-USER> 
 |#
