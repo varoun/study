@@ -152,3 +152,48 @@ Price:$7.95
 NIL
 CL-USER> 
 |#
+
+;;; web pages
+(defun book-shop ()
+  (cl-who:with-html-output-to-string 
+      (str nil :prologue t :indent t)
+    (:html
+     (:head (:title "Comparative book shopping"))
+     (:body (:h1 "Comparative book shopping")
+	    (:h2 "Search multiple bookstores for a book")
+	    (:form :action "/basics/book-results" :method "post"
+		   (:div "ISBN" (:input :type "text" :name "isbn"))
+		   (:input :type "submit" :value "Search"))))))
+
+(defun book-results ()
+  (let ((isbn (hunchentoot:parameter "isbn"))
+	(store-name (mapcar #'car *book-data-sources*)))
+    (cl-who:with-html-output-to-string
+	(str nil :prologue t :indent t)
+      (:html
+       (:head (:title "Book search  results"))
+       (:body (:h1 "Book search results")
+	      (dolist (name store-name)
+		(let* ((results-page 
+			(handler-case (get-book-results name isbn)
+			  (usocket:unknown-error () (format nil "HTTP request failed"))))
+		       (title 
+			(handler-case (extract-data name *title-regex-scanners* results-page)
+			  (no-regex-match (data) (text data))))
+		       (price 
+			(handler-case (extract-data name *price-regex-scanners* results-page)
+			  (no-regex-match (data) (text data)))))
+		  (cl-who:htm (:p (:pre (cl-who:str (format nil "~%Store:~a~%Title:~a~%Price:~a~%" 
+						name title price))))))))))))
+
+
+
+
+;;; Start hunchentoot, setup dispatchers
+(defun setup-site (&key (start-server nil))
+  (when start-server
+    (hunchentoot:start (make-instance 'hunchentoot:acceptor :port 4242)))
+  (push (hunchentoot:create-prefix-dispatcher "/basics/books" 'book-shop)
+	hunchentoot:*dispatch-table*)
+  (push (hunchentoot:create-prefix-dispatcher "/basics/book-results" 'book-results)
+	hunchentoot:*dispatch-table*))
