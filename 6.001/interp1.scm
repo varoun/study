@@ -22,9 +22,9 @@
 (define (get-scheme-procedure prim) (cadr prim))
 
 ;;; initialise the environment
-(table-set! *environment* 'plus* (make-primitive +))
-(table-set! *environment* 'greater* (make-primitive >))
-(table-set! *environment* 'true* #t)
+;(table-set! *environment* 'plus* (make-primitive +))
+;(table-set! *environment* 'greater* (make-primitive >))
+;(table-set! *environment* 'true* #t)
 
 
 ;;; The evaluator 
