@@ -140,15 +140,14 @@ the goal than state-2"
   (< (straight-line-distance state-1 goal-state)
      (straight-line-distance state-2 goal-state)))
 
-(defun sort-search-nodes (search-queue sorting-fn goal-state)
-  (sort search-queue
-	(lambda (node-1 node-2) 
-	  (funcall sorting-fn (node-state node-1) (node-state
-  node-2) goal-state))))
+(defun heuristic-sorting-function (sorting-function goal-state)
+  #'(lambda (node-1 node-2)
+      (funcall sorting-function 
+	       (node-state node-1)
+	       (node-state node-2)
+	       goal-state)))
 
-
-;;; We should really not sort the whole queue, must use merge
-;;; instead.
+;;; Best First Search
 (defun best-first-search 
     (start 
      finish
@@ -165,10 +164,12 @@ the goal than state-2"
 	   (best-first-search
 	    start
 	    finish
-	    (sort-search-nodes (append new-nodes (rest queue))
-			       #'closerp 
-			       finish)
+	    (merge 'list ; note the use of merge sorting two already sorted lists.
+		   (sort new-nodes (heuristic-sorting-function #'closerp finish))
+		   (rest queue)
+		   (heuristic-sorting-function #'closerp finish))
 	    updated-visited-list)))))
+			 
 #|
 CL-USER> (best-first-search 's 'f)
 
@@ -181,3 +182,4 @@ Queue:((F E B A S) (D S)) | Visited:(F E C B D A S)
 (S A B E F)
 CL-USER> 
 |#
+
