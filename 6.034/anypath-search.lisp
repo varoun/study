@@ -169,3 +169,15 @@ the goal than state-2"
 			       #'closerp 
 			       finish)
 	    updated-visited-list)))))
+#|
+CL-USER> (best-first-search 's 'f)
+
+Queue:((S)) | Visited:(S)
+Queue:((A S) (D S)) | Visited:(D A S)
+Queue:((B A S) (D S)) | Visited:(B D A S)
+Queue:((C B A S) (E B A S) (D S)) | Visited:(E C B D A S)
+Queue:((E B A S) (D S)) | Visited:(E C B D A S)
+Queue:((F E B A S) (D S)) | Visited:(F E C B D A S)
+(S A B E F)
+CL-USER> 
+|#
