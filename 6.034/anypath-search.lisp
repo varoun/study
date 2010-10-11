@@ -121,9 +121,51 @@ Queue:((F E D S) (C B A S))|Visited:(C F B E D A S)
 CL-USER> 
 |#
 
+;;; Best First Search - 
+
+;; We need a heuristic function (as the crow flies distance) and a
+;; sort function.
+(defun straight-line-distance (state-1 state-2)
+  "Given two states, calculate the distance between them using their
+rectangular coordinates"
+  (let ((x1 (first (get state-1 'coordinates)))
+	(y1 (second (get state-1 'coordinates)))
+	(x2 (first (get state-2 'coordinates)))
+	(y2 (second (get state-2 'coordinates))))
+    (sqrt (+ (expt (- x2 x1) 2) (expt (- y2 y1) 2)))))
+
+(defun closerp (state-1 state-2 goal-state)
+  "Given two states and a goal state, return T if state-1 is closer to
+the goal than state-2"
+  (< (straight-line-distance state-1 goal-state)
+     (straight-line-distance state-2 goal-state)))
+
+(defun sort-search-nodes (search-queue sorting-fn goal-state)
+  (sort search-queue
+	(lambda (node-1 node-2) 
+	  (funcall sorting-fn (node-state node-1) (node-state
+  node-2) goal-state))))
 
 
-    
-	     
-	   
-	    
+;;; We should really not sort the whole queue, must use merge
+;;; instead.
+(defun best-first-search 
+    (start 
+     finish
+     &optional
+     (queue (make-search-queue start))
+     (visited-list (make-visited-list start)))
+  (format t "~%Queue:~a | Visited:~a" queue visited-list)
+  (cond ((endp queue) nil)
+	((eq (node-state (get-search-node queue)) finish)
+	 (reverse (get-search-node queue)))
+	(t
+	 (multiple-value-bind (new-nodes updated-visited-list)
+	     (expand (get-search-node queue) visited-list)
+	   (best-first-search
+	    start
+	    finish
+	    (sort-search-nodes (append new-nodes (rest queue))
+			       #'closerp 
+			       finish)
+	    updated-visited-list)))))
