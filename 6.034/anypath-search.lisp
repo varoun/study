@@ -24,19 +24,22 @@
 (defun node-state (search-node) 
   "The state of a search node is the first element of the list"
   (first search-node))
+(defun update-node (new-state search-node)
+  "Cons the new state to the search node"
+  (cons new-state search-node))
 
 ;;; The visited list
+;;; For initial prototyping, a list is used. This should be replaced
+;;; by a hash-table for production use.
 (defun make-visited-list (starting-state) 
-  "The visited list is actually a hash table!"
-  (let ((visited-list (make-hash-table)))
-    (setf (gethash starting-state visited-list) t)
-    visited-list))
+  "Create a new visited list given a starting state"
+  (list starting-state))
 
-(defun visitedp (visited-list state)
-  (gethash state visited-list))
+(defun visitedp (state visited-list)
+  (member state visited-list))
 
-(defun add-to-visited-list (visited-list state)
-  (setf (gethash state visited-list) t))
+(defun add-to-visited-list (state visited-list)
+  (cons state visited-list))
 
 ;;; The search queue
 (defun make-search-queue (starting-state)
@@ -49,10 +52,78 @@
 
 
 ;;; Expanding a state
+;;; This is most likey not the elegant way to do this. We ideally
+;;; should not have to use setfs.
 (defun expand (search-node visited-list)
-  (mapcar #'(lambda (neighbour) (cons neighbour search-node))
-	  (remove-if #'(lambda (state) (visitedp visited-list state))
-		     (get (node-state search-node) 'neighbour))))
+  (let* ((neighbours (get (node-state search-node) 'neighbour))
+	 (expanded-nodes '())
+	 (new-visited-list visited-list))
+    (dolist (state neighbours (values expanded-nodes new-visited-list))
+      (unless (visitedp state new-visited-list)
+	(setf expanded-nodes (cons (update-node state search-node) expanded-nodes))
+	(setf new-visited-list (cons state new-visited-list))))))
+
+;;; DepthFirstSearch -- DFS
+(defun depth-first-search (start finish
+			   &optional 
+			   (queue (make-search-queue start))
+			   (visited-list (make-visited-list start)))
+  (format t "~%Queue:~a ||  Visited:~a" queue visited-list)
+  (cond ((endp queue) nil)
+	((eq (node-state (get-search-node queue)) finish)
+	 (reverse (get-search-node queue)))
+	(t
+	 (multiple-value-bind (new-queue new-visited-list)
+	     (expand (get-search-node queue) visited-list)
+	   (depth-first-search start 
+			       finish 
+			       (append new-queue (rest queue))
+			       new-visited-list)))))
+#|
+CL-USER> (depth-first-search 's 'f)
+
+Queue:((S)) ||  Visited:(S)
+Queue:((D S) (A S)) ||  Visited:(D A S)
+Queue:((E D S) (A S)) ||  Visited:(E D A S)
+Queue:((F E D S) (B E D S) (A S)) ||  Visited:(F B E D A S)
+(S D E F)
+CL-USER> 
+|#
+
+;;; BreadthFirst Search - BFS
+(defun breadth-first-search (start 
+			     finish
+			     &optional
+			     (queue (make-search-queue start))
+			     (visited-list (make-visited-list start)))
+  (format t "~%Queue:~a|Visited:~a" queue visited-list)
+  (cond ((endp queue) nil)
+	((eq (node-state (get-search-node queue)) finish)
+	 (reverse (get-search-node queue)))
+	(t
+	 (multiple-value-bind (new-queue new-visited-list)
+	     (expand (get-search-node queue) visited-list)
+	   (breadth-first-search
+	    start
+	    finish
+	    (append (rest queue) new-queue)
+	    new-visited-list)))))
+#|
+CL-USER> (breadth-first-search 's 'f)
+
+Queue:((S))|Visited:(S)
+Queue:((D S) (A S))|Visited:(D A S)
+Queue:((A S) (E D S))|Visited:(E D A S)
+Queue:((E D S) (B A S))|Visited:(B E D A S)
+Queue:((B A S) (F E D S))|Visited:(F B E D A S)
+Queue:((F E D S) (C B A S))|Visited:(C F B E D A S)
+(S D E F)
+CL-USER> 
+|#
 
 
 
+    
+	     
+	   
+	    
