@@ -83,7 +83,10 @@
 ;;; A*
 (defun a-star (start finish)
   (do ((queue (make-search-queue start) 
-	      (merge-sorted-queues (expand (first queue)) (rest queue) finish)))
+	      (merge-sorted-queues 
+	       (sort (expand (first queue)) 
+		     (sort-function #'< finish))
+	       (rest queue) finish)))
       ((endp queue) nil)
     (format t "~%QUEUE STAT:Partial-Path - Path-Length - Estimated Total Cost")
     (dolist (node queue)
@@ -93,6 +96,7 @@
 	      (+ (cost node) (straight-line-distance (state node) finish)))) 
     (when (eq (state (first queue)) finish)
       (return (reverse (first queue))))))
+
 #|
 CL-USER> (a-star 's 'f)
 
@@ -107,38 +111,22 @@ QUEUE STAT:Partial-Path - Path-Length - Estimated Total Cost
 ((D A S) 11.082763 19.626766)
 QUEUE STAT:Partial-Path - Path-Length - Estimated Total Cost
 ((B A S) 8.0 13.0)
-((A D S) 10.325403 17.941177)
 ((E D S) 7.2426405 13.073592)
+((A D S) 10.325403 17.941177)
 ((D A S) 11.082763 19.626766)
 QUEUE STAT:Partial-Path - Path-Length - Estimated Total Cost
+((E D S) 7.2426405 13.073592)
 ((C B A S) 12.0 15.0)
 ((A D S) 10.325403 17.941177)
-((E D S) 7.2426405 13.073592)
 ((D A S) 11.082763 19.626766)
 ((E B A S) 14.082763 19.913715)
 QUEUE STAT:Partial-Path - Path-Length - Estimated Total Cost
+((F E D S) 13.073592 13.073592)
+((C B A S) 12.0 15.0)
 ((A D S) 10.325403 17.941177)
-((E D S) 7.2426405 13.073592)
-((D A S) 11.082763 19.626766)
-((E B A S) 14.082763 19.913715)
-QUEUE STAT:Partial-Path - Path-Length - Estimated Total Cost
-((E D S) 7.2426405 13.073592)
-((B A D S) 13.325403 18.325403)
-((D A S) 11.082763 19.626766)
-((E B A S) 14.082763 19.913715)
-QUEUE STAT:Partial-Path - Path-Length - Estimated Total Cost
 ((B E D S) 13.325403 18.325403)
-((F E D S) 13.073592 13.073592)
-((B A D S) 13.325403 18.325403)
 ((D A S) 11.082763 19.626766)
 ((E B A S) 14.082763 19.913715)
-QUEUE STAT:Partial-Path - Path-Length - Estimated Total Cost
-((F E D S) 13.073592 13.073592)
-((B A D S) 13.325403 18.325403)
-((D A S) 11.082763 19.626766)
-((E B A S) 14.082763 19.913715)
-((A B E D S) 16.325403 23.941177)
-((C B E D S) 17.325403 20.325403)
 (S D E F 13.073592)
 CL-USER> 
 |#
