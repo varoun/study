@@ -1,0 +1,21 @@
+CL-USER> (require 'clsql)
+CL-USER> (require 'clsql-postgresql-socket)
+CL-USER> (clsql:connect '("127.0.0.1" "webdb" "varoun" ""))
+#<POSTGRESQL-SOCKET-DATABASE 127.0.0.1/webdb/varoun OPEN #x38987A26> 
+CL-USER> (clsql:connected-databases)
+(#<POSTGRESQL-SOCKET-DATABASE 127.0.0.1/webdb/varoun OPEN #x388AC876>)
+CL-USER> (clsql:query "select * from mailing_list")
+(("varoun@gmail.com" "Varoun P" NIL) ("philg@mit.edu" "Phil-Baby Greenspun" NIL)) 
+("email" "name" "registration_date")
+CL-USER>
+CL-USER> (clsql:execute-command "insert into mailing_list (email,name) values ('varoun@nevermiss.in','varoun')")
+; No value
+CL-USER> (clsql:query "select * from mailing_list")
+(("varoun@gmail.com" "Varoun P" NIL) ("philg@mit.edu" "Phil-Baby Greenspun" NIL) ("varoun@varoun.com" NIL NIL) ("varoun@nevermiss.in" "varoun\ " NIL))
+("email" "name" "registration_date")
+CL-USER> 
+CL-USER> (clsql:disconnect)
+T
+CL-USER> (clsql:connected-databases)
+NIL
+CL-USER> 
