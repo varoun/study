@@ -174,3 +174,104 @@ these the initialize procedure builds the constraint graph"
 	    (set-new-arcs-for-variable i (cons arc
 					       (new-arcs-for-variable i))))))
     (format t "Done~%")))
+
+
+;;; Update the domain of the variable that is the arc tail so that only values
+;;; consistent with SOME value at the head variable remain
+(defmethod revise ((a arc))
+  "Given an arc, update the tail domain so that only values consistent with the
+head domain remain"
+  (let ((tail-var (arc-tail a))
+	(head-var (arc-head a))
+	(constraint (arc-constraint-function a)))
+    (set-variable-domain 
+     tail-var
+     (map-non-false 
+      #'(lambda (tval)
+	  (if (notany #'(lambda (hval)
+			  (incf *number-of-arc-tests*)
+			  (funcall constraint tail-var tval head-var hval))
+		      (domain-of-variable head-var))
+	      nil ; Nuke tval from tail domain if constraint fails.
+	      tval)) ; Keep tval from tail domain if constraint succeeds.
+      (domain-of-variable tail-var)))))
+
+
+;;; Simple version if propatage-constraints. This only propagates to neighbors
+;;; of the input variable.
+(defun forward-check (var)
+  "Propagate constraints to variables directly connected to the input
+variable. Return nil if any domain becomes empty, t otherwise."
+  (do ((arcs (arcs-into-variable var) (rest arcs)))
+      ((endp arcs) t) ; if we've looked at all of them, return true
+    (revise (first arcs)) ; revise the tail domain of the arc
+    (when (null (domain-of-variable (arc-tail (first arcs)))) ; if domain becomes empty 
+      (return nil)))) ; fail by returning nil
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;; Backtracking Search
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;; Check to see if the partial assignment (this is like the partial path) to
+;;; the first n variables are consistent. The list of values assigned are in
+;;; reverse order.
+
+(defun consistent-p (last-var-index reversed-values)
+  "Check to see if the partial assignment as given by reversed-values is valid
+for the first last-var-index variables"
+  (every 
+   #'(lambda (arc)
+       ;We pick the values at the tail and head of the current arc by looking
+       ;them up from the list of reversed values. Since they are reversed, we
+       ;need to index them from the end of the list!
+       (let ((tail-val 
+	      (elt reversed-values (- last-var-index (arc-tail arc))))
+	     (head-val 
+	      (elt reversed-values (- last-var-index (arc-head arc)))))
+	 ;(format t "~%Checking consistency of arc: ~a" arc)
+	 (funcall (arc-constraint-function arc) 
+		  (arc-tail arc)
+		  tail-val
+		  (arc-head arc)
+		  head-val)))
+   ;This holds the list of arcs whose head/tail indices are less than
+   ;last-var-index and hence, have values assigned to them in reversed-values. 
+   (new-arcs-for-variable last-var-index)))
+
+
+;;; Basic implementation of backtrack
+;;; This is recursive in nature. Rewrite later ?
+(defun backtrack ()
+  (labels ((backtrack-aux (var variable-domain partial-assignment)
+	     (if (endp variable-domain)
+		 nil ; no values left, search has failed
+		 (let* ((extended-partial-assignment
+			 (cons (first variable-domain) partial-assignment)))
+		   
+		   (princ var)
+		   (if (consistent-p var extended-partial-assignment)
+					;assignment is consistent
+		       (if (= var (- (csp-number-of-variables *csp* ) 1))
+					;We have assigned all variables
+			   (reverse extended-partial-assignment)
+					; extend partial assignment, fail otherwise
+			   (or (backtrack-aux (+ 1 var)
+						(domain-of-variable (+ 1 var))
+						extended-partial-assignment)
+			       (backtrack-aux var 
+					      (rest variable-domain) 
+					      partial-assignment)))
+		       (backtrack-aux var 
+				      (rest variable-domain)
+				      partial-assignment))))))
+    (backtrack-aux 0 (domain-of-variable 0) '())))
+#|
+CL-USER> (initialize-map-coloring)
+Initializing...Done
+NIL
+CL-USER> (backtrack)
+011233444
+(RED BLUE RED BLUE GREEN)
+CL-USER> 
+|#

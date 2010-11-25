@@ -41,5 +41,17 @@ CL-USER> (make-index-list 10)
 CL-USER> 
 |#
 
-      
 
+;;; The map-non-false procedure
+(defun map-non-false (fn list)
+  (if (endp list)
+      '()
+      (let ((ans (funcall fn (first list))))
+	(if ans
+	    (cons ans (map-non-false fn (rest list)))
+	    (map-non-false fn (rest list))))))
+#|
+CL-USER> (map-non-false #'(lambda (x) (if (evenp x) 'yeah 'nay )) '(1 2 3 4 5))
+(NAY YEAH NAY YEAH NAY)
+CL-USER> 
+|#
