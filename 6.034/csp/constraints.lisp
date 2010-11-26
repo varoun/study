@@ -133,9 +133,6 @@ a smaller index to the provided arc list"
   (setf (elt (csp-arcs-added-for-new-var *csp*) variable) arcs))
 
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;; General Constraint Propagation
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;;; Initializing the constraint graph
 (defun initialize (names-and-domains arcs)
@@ -174,39 +171,6 @@ these the initialize procedure builds the constraint graph"
 	    (set-new-arcs-for-variable i (cons arc
 					       (new-arcs-for-variable i))))))
     (format t "Done~%")))
-
-
-;;; Update the domain of the variable that is the arc tail so that only values
-;;; consistent with SOME value at the head variable remain
-(defmethod revise ((a arc))
-  "Given an arc, update the tail domain so that only values consistent with the
-head domain remain"
-  (let ((tail-var (arc-tail a))
-	(head-var (arc-head a))
-	(constraint (arc-constraint-function a)))
-    (set-variable-domain 
-     tail-var
-     (map-non-false 
-      #'(lambda (tval)
-	  (if (notany #'(lambda (hval)
-			  (incf *number-of-arc-tests*)
-			  (funcall constraint tail-var tval head-var hval))
-		      (domain-of-variable head-var))
-	      nil ; Nuke tval from tail domain if constraint fails.
-	      tval)) ; Keep tval from tail domain if constraint succeeds.
-      (domain-of-variable tail-var)))))
-
-
-;;; Simple version if propatage-constraints. This only propagates to neighbors
-;;; of the input variable.
-(defun forward-check (var)
-  "Propagate constraints to variables directly connected to the input
-variable. Return nil if any domain becomes empty, t otherwise."
-  (do ((arcs (arcs-into-variable var) (rest arcs)))
-      ((endp arcs) t) ; if we've looked at all of them, return true
-    (revise (first arcs)) ; revise the tail domain of the arc
-    (when (null (domain-of-variable (arc-tail (first arcs)))) ; if domain becomes empty 
-      (return nil)))) ; fail by returning nil
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -275,3 +239,66 @@ CL-USER> (backtrack)
 (RED BLUE RED BLUE GREEN)
 CL-USER> 
 |#
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;; ARC Consistency
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;; Update the domain of the variable that is the arc tail so that only values
+;;; consistent with SOME value at the head variable remain
+(defmethod revise ((a arc))
+  "Given an arc, update the tail domain so that only values consistent with the
+head domain remain"
+  (let ((tail-var (arc-tail a))
+	(head-var (arc-head a))
+	(constraint (arc-constraint-function a)))
+    (set-variable-domain 
+     tail-var
+     (map-non-false 
+      #'(lambda (tval)
+	  (if (notany #'(lambda (hval)
+			  (incf *number-of-arc-tests*)
+			  (funcall constraint tail-var tval head-var hval))
+		      (domain-of-variable head-var))
+	      nil ; Nuke tval from tail domain if constraint fails.
+	      tval)) ; Keep tval from tail domain if constraint succeeds.
+      (domain-of-variable tail-var)))))
+
+
+;;; Simple version if propatage-constraints. This only propagates to neighbors
+;;; of the input variable.
+(defun forward-check (var)
+  "Propagate constraints to variables directly connected to the input
+variable. Return nil if any domain becomes empty, t otherwise."
+  (do ((arcs (arcs-into-variable var) (rest arcs)))
+      ((endp arcs) t) ; if we've looked at all of them, return true
+    (revise (first arcs)) ; revise the tail domain of the arc
+    (when (null (domain-of-variable (arc-tail (first arcs)))) ; if domain becomes empty 
+      (return nil)))) ; fail by returning nil
+
+;;; A simpler version of REVISE that only counts the number of revisions to the
+;;; domain of the tail variable of the given arc if the head variable value is
+;;; set to the given value.
+(defun count-revisions (arc value)
+  "Count the number of revisions to domain of tail var of arc if the head var is
+set to the given value."
+  (let ((head-var (arc-head arc))
+	(tail-var (arc-tail arc))
+	(constraint (arc-constraint-function arc))
+	(deleted-count 0))
+    (dolist (x (domain-of-variable tail-var) deleted-count)
+      (unless (funcall constraint tail-var x head-var value)
+	(incf deleted-count)))))
+
+;;; Count the number of domain deletions a call to FORWARD-CHECK will entail if
+;;; the given head variable is set to the given value if we did not stop at any 
+;;; conflicts.
+(defun count-forward-check-deletions (var val)
+  "Count the number of revisions to the tail var of all arcs whose head var is
+set to the given value"
+  (do ((arcs (arcs-into-variable var) ; all arcs whose head is given  
+	     (rest arcs)) 
+       (revisions 0 
+		  (+ revisions (count-revisions (first arcs) val))))
+      ((endp arcs) revisions)))
+
