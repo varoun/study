@@ -76,6 +76,36 @@
     (WV :neighbors PA MD VA KY OH)
     (WY :neighbors MT SD NB CO UT ID)))
 
+;;; The map of India. 
+(defvar *india-map*
+  '((TN :neighbors KER KAR AP)
+    (KER :neighbors TN KAR)
+    (KAR :neighbors TN KER AP MAH)
+    (AP :neighbors TN KAR MAH CHA ORI)
+    (MAH :neighbors KAR AP CHA MP GUJ)
+    (CHA :neighbors AP ORI JHA UP MP MAH)
+    (ORI :neighbors CHA JHA WB)
+    (GUJ :neighbors RAJ MP MAH)
+    (MP :neighbors MAH CHA UP RAJ GUJ)
+    (JHA :neighbors CHA ORI WB BIH UP)
+    (WB :neighbors ORI JHA BIH SIK ASM)
+    (RAJ :neighbors GUJ MP UP HAR PUN)
+    (UP :neighbors MP CHA JHA BIH UTT HAR DEL RAJ HP)
+    (BIH :neighbors UP JHA WB)
+    (SIK :neighbors WB)
+    (ASM :neighbors WB ARP NAG MAN MIZ TRI)
+    (ARP :neighbors ASM NAG)
+    (NAG :neighbors ASM ARP MAN)
+    (MAN :neighbors ASM NAG MIZ)
+    (MIZ :neighbors ASM MAN TRI)
+    (TRI :neighbors ASM MIZ)
+    (PUN :neighbors RAJ HAR HP JK UTT)
+    (HAR :neighbors RAJ DEL UP UTT HP PUN)
+    (DEL :neighbors HAR UP)
+    (UTT :neighbors HP HAR UP)
+    (HP :neighbors JK PUN HAR UP UTT)
+    (JK :neighbors PUN HP)))
+
 
 ;;; Build a list of map names and domains. 
 (defun map-names-and-domains (regions)
