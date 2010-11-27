@@ -132,6 +132,16 @@ smaller index"
 a smaller index to the provided arc list"
   (setf (elt (csp-arcs-added-for-new-var *csp*) variable) arcs))
 
+;;; Save the current variable domains so that we can restore them when
+;;; backtracking
+(defun save-domains ()
+  "Returns a copy of the variable domains"
+  (copy-seq (csp-variable-domains *csp*)))
+
+;;; Restore variable domains to the one provided. 
+(defun restore-domains (saved)
+  "Restore the variable domains to the one referrenced by SAVED"
+  (setf (csp-variable-domains *csp*) saved))
 
 
 ;;; Initializing the constraint graph
@@ -302,3 +312,81 @@ set to the given value"
 		  (+ revisions (count-revisions (first arcs) val))))
       ((endp arcs) revisions)))
 
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;; Backtracking with Forward Checking with dynamic ordering of variables and
+;;;;; values 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun backtrack-fc-dynamic (pick-next-var sort-values)
+  "Does backtracking with forward checking. Uses the pick-next-var function to
+determine which variable to try next, and trhe sort-values functions to sort the
+  values in the variable's domain"
+  (labels ((backtrack-fc-dynamic-aux (var var-values done-vars)
+	     ; FAIL is called when a tentative assignment fails
+	     (labels 
+		 ((fail (saved-domains)
+		    (restore-domains saved-domains)
+		    (backtrack-fc-dynamic-aux var
+					      (rest var-values)
+					      done-vars)))
+	       (if (endp var-values) ; we have a var but no vals
+		   nil                ; inconsistent
+		   (let ((domains (save-domains)))
+		     (set-variable-domain var (list (first var-values)))
+		     ; Propagate constraints on arcs affected by our assignment
+		     (if (forward-check var)
+			 (let ((new-var (funcall pick-next-var var done-vars)))
+			   (if new-var
+			       (or
+				(backtrack-fc-dynamic-aux 
+				 new-var
+				 (funcall sort-values new-var)
+				 (cons new-var done-vars))
+				(fail domains))
+				; If var is false, it means we've looked at all
+				; of them, and have unique vals. We are done. 
+			       (map 'list #'first (csp-variable-domains *csp*))))
+			 (fail domains)))))))
+    ; start with the first variable
+    (let ((var (funcall pick-next-var nil '())))
+      (if var ; make sure we have a variable to start with
+	  (backtrack-fc-dynamic-aux 
+	   var 
+	   (funcall sort-values var)
+	   '())))))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;; Functions to pick the next var and sort variable domains
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;; This simply picks the next variable by numerical order
+(defun pick-next (current-var done-vars)
+  "Return the next var in numeric (ascending) order. If the current-var is nil
+we are just starting out, return the first variable 0. If not keep increment the
+current var and return it, till we do all vars"
+  (if current-var
+      (if (= current-var
+	     (- (csp-number-of-variables *csp*) 1))
+	  nil
+	  (+ current-var 1))
+      0))
+#|
+CL-USER> (pick-next nil '())
+0
+CL-USER> (pick-next 4 '(4 3 2 1 0))
+5
+CL-USER> 
+|#
+
+
+;;; Simple backtrack with forward checking. No dynamic ordering of variables or
+;;; values 
+#|
+CL-USER> (initialize-map-coloring *US-48-STATES-MAP*)
+Initializing...Done
+NIL
+CL-USER> (backtrack-fc-dynamic #'pick-next #'domain-of-variable)
+(RED RED RED BLUE BLUE RED RED BLUE GREEN RED RED BLUE RED RED GREEN GREEN BLUE BLUE RED GREEN GREEN YELLOW YELLOW GREEN GREEN RED RED YELLOW GREEN BLUE YELLOW GREEN BLUE GREEN GREEN YELLOW GREEN BLUE BLUE BLUE BLUE GREEN YELLOW RED BLUE YELLOW RED YELLOW)
+CL-USER> 
