@@ -380,9 +380,42 @@ CL-USER> (pick-next 4 '(4 3 2 1 0))
 CL-USER> 
 |#
 
+;;; Pick the most constrained variable next, i.e, the variable with the smallest
+;;; domain. This minimises the branching factor. 
+(defun pick-most-constrained (current-var done-vars)
+  "If a variable has a size 0 domain, return that. Return the variable with the
+smallest domain thats not in done-vars otherwise"
+  (do* ((i 0 (+ i 1)) ;variable index
+	(domain (domain-of-variable i) (domain-of-variable i))
+	(len (length domain) (length domain))
+	(best-val 10000.) ; an arbitrary high domain size
+	(best-var nil)) ; the best variable starts out as nil
+       ((= i (- (csp-number-of-variables *csp*) 1)) best-var)
+    (if (= len 0) ; if a domain is empty
+	(return i) ; we failed, return the variable
+	(unless (member i done-vars) ; skip if we've assigned this variable
+	  (when (< len best-val) ; if this is the smallest domain we've seen 
+	    (setf best-val len) ; update best-val and best-var 
+	    (setf best-var i))))))
+
+;;; Sort domain values so that those values that would cause the least amount of
+;;; deletions when forward-checked would appear first.
+(defun sort-least-constraining-values-first (var)
+  "Sort domain values so that least constraining values appear first"
+  (let ((values (domain-of-variable var))) ; use copy-seq ? sort is destructive 
+    (mapcar #'cdr 
+	    (sort 
+	     (mapcar #'(lambda (val)
+			 (cons (count-forward-check-deletions var val)
+			       val))
+		     values)
+	     #'<
+	     :key #'first))))
+
 
 ;;; Simple backtrack with forward checking. No dynamic ordering of variables or
-;;; values 
+;;; values
+ 
 #|
 CL-USER> (initialize-map-coloring *US-48-STATES-MAP*)
 Initializing...Done
@@ -390,3 +423,17 @@ NIL
 CL-USER> (backtrack-fc-dynamic #'pick-next #'domain-of-variable)
 (RED RED RED BLUE BLUE RED RED BLUE GREEN RED RED BLUE RED RED GREEN GREEN BLUE BLUE RED GREEN GREEN YELLOW YELLOW GREEN GREEN RED RED YELLOW GREEN BLUE YELLOW GREEN BLUE GREEN GREEN YELLOW GREEN BLUE BLUE BLUE BLUE GREEN YELLOW RED BLUE YELLOW RED YELLOW)
 CL-USER> 
+|#
+
+;;; Backtracking with dymanic ordering
+#|
+CL-USER> (initialize-map-coloring *US-48-STATES-MAP*)
+
+Initializing...Done
+NIL
+CL-USER> (backtrack-fc-dynamic #'pick-most-constrained #'sort-least-constraining-values-first)
+(RED RED BLUE GREEN GREEN RED GREEN BLUE GREEN RED GREEN BLUE GREEN RED RED BLUE BLUE BLUE RED RED BLUE GREEN GREEN BLUE BLUE RED RED RED GREEN BLUE RED GREEN BLUE BLUE BLUE RED GREEN BLUE GREEN BLUE GREEN YELLOW GREEN RED RED GREEN YELLOW RED)
+CL-USER> 
+|#
+
+
