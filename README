@@ -1,1 +1,5 @@
-This repository is for code written as part of study, ala SICP, EOPL etc.
+Code for MIT's 6.001, 6.034 and 6.171. This is far from being complete. This
+repo also contains miscellaneous Lisp code, for example, from PHW's "Lisp 3rd 
+Ed".
+
+ 
