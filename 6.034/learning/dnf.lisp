@@ -55,14 +55,15 @@ nn."
   "Given positive examples - p, negative examples - n, and the conjunct - r find
 the best feature to add to the rule" 
   (let ((num-features (length (first p))))
-    (do* ((i 1 (+ i 1))
+    (do* ((i (- num-features) (+ i 1))
 	  (best-score-so-far 0)
 	  (best-feature-so-far 0))
 	 ((> i num-features) best-feature-so-far)
-      (let ((score (feature-score i p n r)))
-	(when (> score best-score-so-far)
-	  (setf best-score-so-far score)
-	  (setf best-feature-so-far i))))))
+      (unless (= i 0) ; index is 1 based
+	(let ((score (feature-score i p n r)))
+	  (when (> score best-score-so-far)
+	    (setf best-score-so-far score)
+	    (setf best-feature-so-far i)))))))
 
 (defun feature-score (f p n r)
   "Compute the feature score for f in the context of current rule - r."
@@ -74,15 +75,22 @@ the best feature to add to the rule"
 
 
 ;;; Given a conjunction and a datapoint, coversp evals to true if all the
-;;; features are true for the data point, and false if any feature is 0.
+;;; features have a value that would make the example true. This means all
+;;; positive features should be 1 and all negated features should be 0.
 (defun coversp (conjunct datapoint)
   "Given a conjunct and a datapoint, eval to true if ALL the features in the
-conjunct are true for the datapoint"
-  (cond ((null conjunct) t) ; empty conjunct is true
-	((let ((index (- (first conjunct) 1))) ; feature indices are 1 based!
-	   (= (elt datapoint index) 0)) nil) ; feature is 0, return nil.
-	(t
-	 (coversp (rest conjunct) datapoint))))
+conjunct have values that make the example true"
+  (if (null conjunct) 
+      t    ;empty conjunct is true
+      (let* ((feature (first conjunct))
+	     (index (- (abs feature) 1)))
+	(cond ((and (= (elt datapoint index) 0)
+		    (plusp feature)) nil) ;non negated feature is 0
+	      ((and (= (elt datapoint index) 1)
+		    (minusp feature)) nil) ;negated feature is 1
+	      (t
+	       (coversp (rest conjunct) datapoint))))))
+		 
 
 
 ;;; Given a dataset and a conjunct, count the number of covered examples, i.e,
@@ -138,8 +146,10 @@ conjunct"
     (1 0 0 1 0)
     (0 1 1 1 1)))
 
+;;; When we allow negated features, we get a different hypothesis from the
+;;; earlier '((2 1) (4 3))
 #|
 CL-USER> (learn-dnf *dataset-1* 0)
-((2 1) (4 3))
+((1 -4) (4 3))
 CL-USER> 
 |#
